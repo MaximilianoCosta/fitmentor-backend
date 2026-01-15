@@ -65,7 +65,7 @@ Regras:
 """
 
         resp = client.models.generate_content(
-            model="models/gemini-2.0-flash",
+            model="models/gemini-2.5-flash",
             contents=prompt
         )
 
