@@ -1,24 +1,9 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import os
-
 from google import genai
 
 app = FastAPI()
-
-@app.get("/models")
-def listar_models():
-    if not API_KEY:
-        raise HTTPException(status_code=500, detail="GEMINI_API_KEY não configurada.")
-    try:
-        client = genai.Client(api_key=API_KEY)
-        modelos = []
-        for m in client.models.list():
-            modelos.append(getattr(m, "name", str(m)))
-        return {"models": modelos}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
 
 API_KEY = os.getenv("GEMINI_API_KEY")
 
@@ -33,15 +18,25 @@ class Aluno(BaseModel):
 
 @app.get("/")
 def home():
-    return {"status": "ok", "message": "FitMentor backend rodando. Use /docs"}
+    return {"status": "ok", "message": "FitMentor backend rodando. Use /docs e /models"}
+
+@app.get("/models")
+def listar_models():
+    if not API_KEY:
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY não configurada.")
+    try:
+        client = genai.Client(api_key=API_KEY)
+        modelos = []
+        for m in client.models.list():
+            modelos.append(getattr(m, "name", str(m)))
+        return {"models": modelos}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/gerar-treino")
 def gerar_treino(aluno: Aluno):
     if not API_KEY:
-        raise HTTPException(
-            status_code=500,
-            detail="GEMINI_API_KEY não configurada no Render (Environment).",
-        )
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY não configurada no Render.")
 
     try:
         client = genai.Client(api_key=API_KEY)
@@ -63,13 +58,14 @@ Estilo de vida e saúde (considerar na intensidade e escolhas):
 
 Regras:
 - Priorize segurança.
-- Dê sugestões progressivas.
 - Divida em aquecimento, parte principal e alongamento.
-- Formato em tópicos, bem organizado.
+- Informe séries, repetições e descanso.
+- Sugira progressão semanal simples.
+- Formato em tópicos bem organizado.
 """
 
         resp = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="models/gemini-2.0-flash",
             contents=prompt
         )
 
