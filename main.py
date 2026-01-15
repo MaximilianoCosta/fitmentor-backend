@@ -6,6 +6,20 @@ from google import genai
 
 app = FastAPI()
 
+@app.get("/models")
+def listar_models():
+    if not API_KEY:
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY não configurada.")
+    try:
+        client = genai.Client(api_key=API_KEY)
+        modelos = []
+        for m in client.models.list():
+            modelos.append(getattr(m, "name", str(m)))
+        return {"models": modelos}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 API_KEY = os.getenv("GEMINI_API_KEY")
 
 class Aluno(BaseModel):
