@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from typing import Any, Dict, List, Optional, Union
 import os
-import random
 from google import genai
 
 app = FastAPI()
@@ -9,210 +9,146 @@ app = FastAPI()
 API_KEY = os.getenv("GEMINI_API_KEY")
 
 # =========================
-# MODELOS
+# CATÁLOGO DE EXERCÍCIOS
+# (Você pode ir aumentando depois)
+# IMPORTANTE: video_url pode ser Cloudinary (recomendado)
 # =========================
+EXERCISES: List[Dict[str, Any]] = [
+    # Peito
+    {"id": "supino-reto", "nome": "Supino reto", "grupo": "peito", "nivel": ["Iniciante","Intermediário","Avançado"], "objetivos": ["Hipertrofia","Força"], "video_url": ""},
+    {"id": "supino-inclinado", "nome": "Supino inclinado", "grupo": "peito", "nivel": ["Iniciante","Intermediário","Avançado"], "objetivos": ["Hipertrofia"], "video_url": ""},
+    {"id": "flexao", "nome": "Flexão de braço", "grupo": "peito", "nivel": ["Iniciante","Intermediário","Avançado"], "objetivos": ["Emagrecimento","Resistência","Hipertrofia"], "video_url": ""},
 
+    # Costas
+    {"id": "puxada-frontal", "nome": "Puxada frontal", "grupo": "costas", "nivel": ["Iniciante","Intermediário","Avançado"], "objetivos": ["Hipertrofia","Força"], "video_url": ""},
+    {"id": "remada-curvada", "nome": "Remada curvada", "grupo": "costas", "nivel": ["Intermediário","Avançado"], "objetivos": ["Hipertrofia","Força"], "video_url": ""},
+    {"id": "remada-sentada", "nome": "Remada sentada", "grupo": "costas", "nivel": ["Iniciante","Intermediário","Avançado"], "objetivos": ["Hipertrofia"], "video_url": ""},
+
+    # Pernas
+    {"id": "agachamento", "nome": "Agachamento", "grupo": "pernas", "nivel": ["Iniciante","Intermediário","Avançado"], "objetivos": ["Emagrecimento","Hipertrofia","Força"], "video_url": ""},
+    {"id": "leg-press", "nome": "Leg press", "grupo": "pernas", "nivel": ["Iniciante","Intermediário","Avançado"], "objetivos": ["Hipertrofia","Força"], "video_url": ""},
+    {"id": "stiff", "nome": "Stiff / Terra romeno", "grupo": "pernas", "nivel": ["Intermediário","Avançado"], "objetivos": ["Hipertrofia","Força"], "video_url": ""},
+
+    # Ombros
+    {"id": "desenvolvimento", "nome": "Desenvolvimento (ombros)", "grupo": "ombros", "nivel": ["Iniciante","Intermediário","Avançado"], "objetivos": ["Hipertrofia","Força"], "video_url": ""},
+    {"id": "elevacao-lateral", "nome": "Elevação lateral", "grupo": "ombros", "nivel": ["Iniciante","Intermediário","Avançado"], "objetivos": ["Hipertrofia"], "video_url": ""},
+
+    # Bíceps
+    {"id": "rosca-direta", "nome": "Rosca direta", "grupo": "biceps", "nivel": ["Iniciante","Intermediário","Avançado"], "objetivos": ["Hipertrofia"], "video_url": ""},
+    {"id": "rosca-alternada", "nome": "Rosca alternada", "grupo": "biceps", "nivel": ["Iniciante","Intermediário","Avançado"], "objetivos": ["Hipertrofia"], "video_url": ""},
+
+    # Tríceps
+    {"id": "triceps-corda", "nome": "Tríceps na corda", "grupo": "triceps", "nivel": ["Iniciante","Intermediário","Avançado"], "objetivos": ["Hipertrofia"], "video_url": ""},
+    {"id": "triceps-testa", "nome": "Tríceps testa", "grupo": "triceps", "nivel": ["Intermediário","Avançado"], "objetivos": ["Hipertrofia"], "video_url": ""},
+
+    # Core
+    {"id": "prancha", "nome": "Prancha", "grupo": "core", "nivel": ["Iniciante","Intermediário","Avançado"], "objetivos": ["Emagrecimento","Resistência","Hipertrofia"], "video_url": ""},
+    {"id": "abdominal-bicicleta", "nome": "Abdominal bicicleta", "grupo": "core", "nivel": ["Iniciante","Intermediário","Avançado"], "objetivos": ["Emagrecimento","Resistência"], "video_url": ""},
+]
+
+
+# =========================
+# MODEL
+# =========================
 class Aluno(BaseModel):
     nome: str
     idade: int
     altura: float
     peso: float
-    nivel: str            # iniciante | intermediario | avancado
-    objetivo: str         # Emagrecimento | Hipertrofia | Condicionamento
-    estilo_vida: dict
+    nivel: str
+    # aceita string OU lista (porque seu app virou múltipla escolha)
+    objetivo: Union[str, List[str]]
+    estilo_vida: Dict[str, Any]
 
-# =========================
-# MAPA DE EXERCÍCIOS (IDS)
-# =========================
 
-EXERCISE_MAP = {
-    "pernas": {
-        "iniciante": [
-            "leg-press",
-            "afundo",
-            "cadeira-extensora",
-            "mesa-flexora"
-        ],
-        "intermediario": [
-            "agachamento-livre",
-            "stiff",
-            "afundo",
-            "leg-press"
-        ],
-        "avancado": [
-            "agachamento-livre",
-            "stiff",
-            "afundo"
-        ]
-    },
-    "costas": {
-        "iniciante": [
-            "puxada-frontal",
-            "remada-baixa"
-        ],
-        "intermediario": [
-            "puxada-frontal",
-            "remada-curvada",
-            "remada-baixa"
-        ],
-        "avancado": [
-            "barra-fixa",
-            "remada-curvada"
-        ]
-    },
-    "peito": {
-        "iniciante": [
-            "crucifixo",
-            "cross-over"
-        ],
-        "intermediario": [
-            "supino-reto",
-            "supino-inclinado",
-            "crucifixo"
-        ],
-        "avancado": [
-            "supino-reto",
-            "supino-inclinado"
-        ]
-    },
-    "ombros": {
-        "iniciante": [
-            "elevacao-lateral",
-            "elevacao-frontal"
-        ],
-        "intermediario": [
-            "desenvolvimento-halteres",
-            "elevacao-lateral"
-        ],
-        "avancado": [
-            "desenvolvimento-halteres"
-        ]
-    },
-    "bracos": {
-        "iniciante": [
-            "rosca-direta",
-            "triceps-corda"
-        ],
-        "intermediario": [
-            "rosca-alternada",
-            "triceps-testa"
-        ],
-        "avancado": [
-            "rosca-martelo",
-            "mergulho-banco"
-        ]
-    },
-    "core": {
-        "iniciante": [
-            "abdominal-crunch",
-            "prancha"
-        ],
-        "intermediario": [
-            "prancha",
-            "abdominal-obliquo"
-        ],
-        "avancado": [
-            "prancha"
-        ]
-    }
-}
+def _normalize_objetivo(obj: Union[str, List[str]]) -> List[str]:
+    if isinstance(obj, list):
+        return [str(x).strip() for x in obj if str(x).strip()]
+    s = str(obj).strip()
+    return [s] if s else []
 
-OBJETIVO_GRUPOS = {
-    "Emagrecimento": ["pernas", "costas", "peito", "core"],
-    "Hipertrofia": ["pernas", "peito", "costas", "ombros", "bracos"],
-    "Condicionamento": ["pernas", "core", "costas"]
-}
 
-# =========================
-# FUNÇÕES AUXILIARES
-# =========================
+def filtrar_exercicios(nivel: str, objetivos: List[str]) -> List[Dict[str, Any]]:
+    nivel = (nivel or "").strip()
+    objetivos = [o.strip() for o in objetivos if o.strip()]
 
-def selecionar_exercicios(grupos, nivel, quantidade=6):
-    selecionados = []
+    # 1) tenta bater NIVEL + OBJETIVO
+    candidatos = [
+        e for e in EXERCISES
+        if nivel in e.get("nivel", []) and (not objetivos or any(o in e.get("objetivos", []) for o in objetivos))
+    ]
 
-    for grupo in grupos:
-        exercicios = EXERCISE_MAP.get(grupo, {}).get(nivel, [])
-        random.shuffle(exercicios)
-        selecionados.extend(exercicios)
+    # 2) se não achou, tenta só NIVEL
+    if not candidatos:
+        candidatos = [e for e in EXERCISES if nivel in e.get("nivel", [])]
 
-    # remove duplicados mantendo ordem
-    selecionados = list(dict.fromkeys(selecionados))
+    # 3) se ainda não achou, usa tudo (fallback final)
+    if not candidatos:
+        candidatos = EXERCISES[:]
 
-    return selecionados[:quantidade]
+    return candidatos
 
-# =========================
-# ROTAS
-# =========================
 
 @app.get("/")
 def home():
-    return {
-        "status": "ok",
-        "message": "FitMentor backend rodando",
-        "endpoints": ["/docs", "/gerar-treino"]
-    }
+    return {"status": "ok", "message": "FitMentor backend rodando. Use /docs e /models"}
+
+
+@app.get("/models")
+def listar_models():
+    if not API_KEY:
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY não configurada.")
+    try:
+        client = genai.Client(api_key=API_KEY)
+        modelos = []
+        for m in client.models.list():
+            modelos.append(getattr(m, "name", str(m)))
+        return {"models": modelos}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/gerar-treino")
 def gerar_treino(aluno: Aluno):
-
     if not API_KEY:
-        raise HTTPException(
-            status_code=500,
-            detail="GEMINI_API_KEY não configurada no Render."
-        )
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY não configurada no Render.")
 
     try:
+        objetivos = _normalize_objetivo(aluno.objetivo)
+        exercicios_ok = filtrar_exercicios(aluno.nivel, objetivos)
+
+        # pega uma seleção simples (você vai sofisticar depois)
+        # aqui montamos um full-body básico com 6–8 exercícios
+        base = exercicios_ok[:8]
+
+        # prompt já inclui lista de exercícios para a IA "escolher"
+        lista_ex = "\n".join([f"- {e['nome']} (grupo: {e['grupo']}, id: {e['id']})" for e in base])
+
         client = genai.Client(api_key=API_KEY)
-
-        nivel = aluno.nivel.lower()
-        grupos = OBJETIVO_GRUPOS.get(
-            aluno.objetivo,
-            ["pernas", "costas", "core"]
-        )
-
-        ids_exercicios = selecionar_exercicios(
-            grupos=grupos,
-            nivel=nivel,
-            quantidade=6
-        )
-
-        if not ids_exercicios:
-            raise HTTPException(
-                status_code=400,
-                detail="Nenhum exercício encontrado para este perfil."
-            )
 
         prompt = f"""
 Você é um professor de educação física experiente.
+Crie um plano de treino SEGURO, OBJETIVO e PERSONALIZADO.
 
-REGRAS OBRIGATÓRIAS:
-- Use SOMENTE os exercícios desta lista de IDs:
-{ids_exercicios}
-- NÃO invente exercícios
-- NÃO use nomes fora da lista
-- Retorne APENAS JSON válido
-- Não inclua texto fora do JSON
-
-FORMATO EXATO:
-{{
-  "treino": [
-    {{
-      "exercicio_id": "id_da_lista",
-      "series": 3,
-      "repeticoes": "10-12",
-      "descanso_segundos": 60,
-      "observacao": "dica técnica curta"
-    }}
-  ]
-}}
-
-DADOS DO ALUNO:
+Aluno:
+Nome: {aluno.nome}
 Idade: {aluno.idade}
-Altura: {aluno.altura}
-Peso: {aluno.peso}
+Altura: {aluno.altura} m
+Peso: {aluno.peso} kg
 Nível: {aluno.nivel}
-Objetivo: {aluno.objetivo}
-Estilo de vida: {aluno.estilo_vida}
+Objetivo(s): {", ".join(objetivos) if objetivos else "Não informado"}
+
+Estilo de vida e saúde (considerar intensidade e escolhas):
+{aluno.estilo_vida}
+
+Use APENAS exercícios desta lista (se precisar, repita algum):
+{lista_ex}
+
+Regras:
+- Divida em aquecimento, parte principal e alongamento.
+- Na parte principal, traga 6 a 8 exercícios (nome + séries + reps + descanso).
+- Sugira progressão semanal simples.
+- Formato em tópicos, bem organizado.
 """
 
         resp = client.models.generate_content(
@@ -220,21 +156,9 @@ Estilo de vida: {aluno.estilo_vida}
             contents=prompt
         )
 
-        texto = getattr(resp, "text", None)
+        texto = getattr(resp, "text", None) or "Sem resposta do modelo."
+        return {"plano": texto, "exercicios_sugeridos": base}
 
-        if not texto:
-            raise HTTPException(
-                status_code=500,
-                detail="Modelo não retornou resposta."
-            )
-
-        return {
-            "exercicios_permitidos": ids_exercicios,
-            "resultado": texto
-        }
-
-    except HTTPException:
-        raise
     except Exception as e:
         print("ERRO AO GERAR TREINO:", repr(e))
         raise HTTPException(status_code=500, detail=str(e))
